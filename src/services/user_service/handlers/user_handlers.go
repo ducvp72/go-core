@@ -3,8 +3,6 @@ package handlers
 import (
 	"context"
 	"net/http"
-
-	"github.com/gorilla/mux"
 )
 
 type CreateUserRequest struct {
@@ -18,7 +16,14 @@ type CreateUserResponse struct {
 	Role        string   `json:"role"`
 }
 
-func HandlerCreateUser(ctx context.Context, req *CreateUserRequest) (*CreateUserResponse, error) {
+type GetUserPermissionRequest struct {
+}
+
+type GetUserPermissionResponse struct {
+	Permissions []string `json:"permissions"`
+}
+
+func (s *HandlerService) HandlerCreateUser(ctx context.Context, req *CreateUserRequest) (*CreateUserResponse, error) {
 	return &CreateUserResponse{
 		Name:        req.Name,
 		Token:       "abc",
@@ -33,11 +38,6 @@ func GetToken(w http.ResponseWriter, r *http.Request) {
 func RefreshToken(w http.ResponseWriter, r *http.Request) {
 }
 
-func HandlerGetPermission(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-type", "application/json")
-	w.Write([]byte("Hello"))
-}
-
-func privateHandlers(r *mux.Router) {
-	r.HandleFunc("/get-permissions", HandlerGetPermission).Methods("GET")
+func (s *HandlerService) HandlerGetPermission(ctx context.Context, req *GetUserPermissionRequest) (*GetUserPermissionResponse, error) {
+	return nil, nil
 }

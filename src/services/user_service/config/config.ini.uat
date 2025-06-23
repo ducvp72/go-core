@@ -1,0 +1,5 @@
+[Service]
+Env = UAT
+Source = go-core
+Name = user
+Port = 8082

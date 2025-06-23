@@ -1,0 +1,5 @@
+[Service]
+Env = DEV
+App = go-core
+Name = user
+Port = 8080

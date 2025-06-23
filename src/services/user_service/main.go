@@ -4,26 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"go-core/src/services/user_service/config"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	handlers "go-core/src/services/user_service/handlers"
-
 	"github.com/gorilla/mux"
-)
 
-const (
-	PORT    = 8080
-	SERVICE = "user"
+	handlers "go-core/src/services/user_service/handlers"
 )
-
-type Service struct {
-	r   *mux.Router
-	ctx context.Context
-}
 
 type contextKey string
 
@@ -31,12 +22,25 @@ func main() {
 	startService()
 }
 
+type Service struct {
+	ctx    context.Context
+	hs     *handlers.HandlerService
+	router *mux.Router
+}
+
 func startService() {
-	router := mux.NewRouter().PathPrefix("/api").Subrouter()
-	context := context.WithValue(context.Background(), contextKey("go-core"), SERVICE)
+	config.LoadConfig()
+	app := config.ServConfig.App
+	name := config.ServConfig.Name
+	port := config.ServConfig.Port
+	env := config.ServConfig.Env
+
+	r := mux.NewRouter().PathPrefix("/api").Subrouter()
+	context := context.WithValue(context.Background(), contextKey(app), name)
 	service := &Service{
-		r:   router,
-		ctx: context,
+		ctx:    context,
+		hs:     &handlers.HandlerService{},
+		router: r,
 	}
 
 	service.initHandlers()
@@ -45,32 +49,32 @@ func startService() {
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	go func() {
-		log.Printf("🚀 Service is running at http://localhost:%d", PORT)
-		err := http.ListenAndServe(fmt.Sprintf(":%v", PORT), service.r)
+		log.Printf("🚀 Service is running at [%s] http://localhost:%d", env, port)
+		err := http.ListenAndServe(fmt.Sprintf(":%v", port), service.router)
 		if err != nil {
 			log.Fatalf("❌ Failed to start server: %v", err)
 		}
 	}()
 
 	<-signalChan
-	log.Printf("❌ Server %s stop at port: %d", SERVICE, PORT)
+	log.Printf("❌ Server %s stop at [%s] port: %d", name, env, port)
 }
 
 func (s *Service) initHandlers() {
-	s.r.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("abc"))
+	s.router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello world"))
 	}).Methods("GET")
 
-	// privateHandlers(r, ctx)
+	s.privateHandlers()
 	s.publicHandlers()
 }
 
-// func privateHandlers(r *mux.Router, ctx context.Context) {
-// 	r.HandleFunc("/get-permissions", handlers.HandlerGetPermission).Methods("GET")
-// }
+func (s *Service) privateHandlers() {
+	s.router.HandleFunc("/get-permissions", wrapperHandler(s.ctx, s.hs.HandlerGetPermission)).Methods("GET")
+}
 
 func (s *Service) publicHandlers() {
-	s.r.HandleFunc("/create-user", wrapperHandler(s.ctx, handlers.HandlerCreateUser)).Methods("POST")
+	s.router.HandleFunc("/create-user", wrapperHandler(s.ctx, s.hs.HandlerCreateUser)).Methods("POST")
 }
 
 func wrapperHandler[TReq any, TResp any](
