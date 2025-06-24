@@ -17,6 +17,8 @@ type CreateUserResponse struct {
 }
 
 type GetUserPermissionRequest struct {
+	Username string `json:"username"`
+	AppCode  string `json:"appCode"`
 }
 
 type GetUserPermissionResponse struct {

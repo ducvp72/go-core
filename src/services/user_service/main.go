@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	helpers "go-core/src/helpers"
 	handlers "go-core/src/services/user_service/handlers"
 )
 
@@ -65,6 +66,7 @@ func (s *Service) initHandlers() {
 		w.Write([]byte("Hello world"))
 	}).Methods("GET")
 
+	s.router.Use(helpers.LoggerMiddleware)
 	s.privateHandlers()
 	s.publicHandlers()
 }
@@ -82,10 +84,19 @@ func wrapperHandler[TReq any, TResp any](
 	handler func(ctx context.Context, req *TReq) (*TResp, error),
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
 		var req TReq
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid request", http.StatusBadRequest)
-			return
+		if r.Method == "GET" {
+			err := convertUrlToString(r.URL.Query(), &req)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		} else {
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "invalid request", http.StatusBadRequest)
+				return
+			}
 		}
 
 		resp, err := handler(ctx, &req)
@@ -104,3 +115,30 @@ func wrapperHandler[TReq any, TResp any](
 		w.Write(prettyJSON)
 	}
 }
+
+func convertUrlToString[TReq any](urlMap map[string][]string, req *TReq) error {
+	mapString := make(map[string]string)
+
+	for k, v := range urlMap {
+		mapAlias := mapAlias[k]
+		mapString[mapAlias] = v[0]
+	}
+
+	data, err := json.Marshal(mapString)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(data, &req); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+var (
+	mapAlias = map[string]string{
+		"u":    "username",
+		"code": "appCode",
+	}
+)
